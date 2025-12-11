@@ -4,8 +4,9 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import ImageKit from "imagekit";
-import { image } from "@heroui/theme";
-
+import { file } from "zod";
+import { data } from "framer-motion/client";
+import { user } from "@heroui/theme";
 var imagekit = new ImageKit({
     publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY || "",
     privateKey: process.env.IMAGEKIT_PRIVATE_KEY || "",
@@ -14,39 +15,56 @@ var imagekit = new ImageKit({
 export async function PATCH(req: NextRequest) {
     try {
         const { userId } = await auth();
-        const { filesObjects } = await req.json();
-        const filesId = filesObjects.map(
-            (filesObject: { id: string }) => filesObject.id,
-        );
-        if (filesId === 0) {
-            return;
-        }
         if (!userId) {
             return NextResponse.json(
-                { Error: "Unauthorized access" },
-                { status: 401 },
+                {
+                    Error: "Unauthrozie User",
+                },
+                {
+                    status: 401,
+                },
             );
         }
-        const imagekitFiles = imagekit.bulkDeleteFiles(filesId);
-        if (!imagekitFiles) {
-            return;
-        }
-
-        const deletedtrashs = await db
-            .delete(files)
-            .where(and(eq(files.userId, userId), eq(files.isTrash, true)))
-            .returning();
-        if (deletedtrashs.length === 0) {
+        const trashfiles = await db
+            .select()
+            .from(files)
+            .where(and(eq(files.userId, userId), eq(files.isTrash, true)));
+        if (trashfiles.length === 0) {
             return NextResponse.json(
-                { Error: "Files not found" },
+                {
+                    Error: "No trash files found",
+                },
                 { status: 404 },
             );
         }
-        return NextResponse.json(deletedtrashs);
-    } catch (error) {
+        const trashfilesId = trashfiles.map((trashfile) => {
+            return trashfile.;
+        });
+        const deletedfilesImageKit =
+            // Do it better 
+            await imagekit;
+        if (!deletedfilesImageKit) {
+            return NextResponse.json(
+                {
+                    Error: "Fail to delete the files ",
+                },
+                { status: 500 },
+            );
+        }
+        const finallDelete = await db
+            .delete(files)
+            .where(and(eq(files.userId, userId), eq(files.isTrash, true)));
+        if (!finallDelete) {
+            return NextResponse.json({ Error: "Fail to delete files " });
+        }
         return NextResponse.json(
-            { Error: "Error while deleting files" },
-            { status: 500 },
+            {
+                Success: "The delete Process was successful",
+                delete: finallDelete,
+            },
+            { status: 200 },
         );
+    } catch (error) {
+        return NextResponse.json({ Error: error });
     }
 }
